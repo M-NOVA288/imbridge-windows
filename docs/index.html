@@ -1,0 +1,568 @@
+<title>Studio Planning Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: an interior-design studio ops planner. Left rail of scenario levers,
+   right canvas of KPIs + charts that recompute live. Quiet-luxury chrome;
+   color lives in the data. */
+:root {
+  color-scheme: light;
+  --canvas: #e9e5dd;
+  --surface: #fbfaf7;
+  --surface-2: #f1eee7;
+  --ink: #221f1a;
+  --ink-2: #5c564c;
+  --muted: #8d8678;
+  --line: #ddd7cb;
+  --line-2: #eae5db;
+  --brass: #9a7b32;
+  --focus: #221f1a;
+  /* validated categorical series (light) */
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+  --good: #3f7d4f; --good-ink: #2c5e39;
+  --warn: #b5801f; --warn-ink: #8a6016;
+  --crit: #c0492f; --crit-ink: #9a3a24;
+  --shadow: 0 1px 2px rgba(34,31,26,.05), 0 8px 24px -12px rgba(34,31,26,.18);
+  --r: 14px;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --ui: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: #111010; --surface: #1a1917; --surface-2: #222019;
+    --ink: #f0ede6; --ink-2: #bcb6aa; --muted: #867f72;
+    --line: #2f2b24; --line-2: #262219; --brass: #c9a84e; --focus: #f0ede6;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+    --good: #5fa06f; --good-ink: #8fc79c; --warn: #d6a43e; --warn-ink: #e6c074;
+    --crit: #e06a4f; --crit-ink: #f0a28f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #111010; --surface: #1a1917; --surface-2: #222019;
+  --ink: #f0ede6; --ink-2: #bcb6aa; --muted: #867f72;
+  --line: #2f2b24; --line-2: #262219; --brass: #c9a84e; --focus: #f0ede6;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --good: #5fa06f; --good-ink: #8fc79c; --warn: #d6a43e; --warn-ink: #e6c074;
+  --crit: #e06a4f; --crit-ink: #f0a28f;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--canvas); color: var(--ink);
+  font-family: var(--ui); font-size: 15px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  padding-left: max(18px, env(safe-area-inset-left, 0px));
+  padding-right: max(18px, env(safe-area-inset-right, 0px));
+  padding-block: 22px 44px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* header */
+header { display: grid; gap: 10px; margin-bottom: 18px; }
+.titlerow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px; }
+.brandmark { font: 600 13px/1 var(--ui); letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+h1 { font: 500 clamp(28px, 4.4vw, 42px)/1.05 var(--display); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--ink-2); max-width: 70ch; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.chip.live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 6px; vertical-align: middle; }
+.spacer { flex: 1; }
+.theme-btn { font: 500 13px var(--ui); color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.theme-btn:hover { border-color: var(--ink-2); color: var(--ink); }
+
+/* insight banner */
+.insight { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--brass); border-radius: 12px; padding: 13px 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.insight svg { flex: none; margin-top: 2px; color: var(--brass); }
+.insight p { margin: 0; }
+.insight b { font-weight: 600; }
+
+/* preset row */
+.presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; align-items: center; }
+.presets .label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-right: 2px; }
+.preset { font: 500 13px var(--ui); padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer; transition: border-color .15s, background .15s; }
+.preset:hover { border-color: var(--ink-2); }
+.preset.active { background: var(--ink); color: var(--canvas); border-color: var(--ink); }
+.preset.ghost { color: var(--ink-2); }
+
+/* main layout */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+
+/* controls */
+.controls { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; box-shadow: var(--shadow); position: sticky; top: 14px; }
+@media (max-width: 920px) { .controls { position: static; } }
+.controls h2 { font: 600 12px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+fieldset { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 13px; }
+fieldset:last-of-type { margin-bottom: 4px; }
+legend { font-weight: 600; font-size: 13px; padding: 0; margin-bottom: 4px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
+legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+.field { display: grid; gap: 5px; }
+.field .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.field label { font-size: 13.5px; color: var(--ink-2); }
+.field .v { font: 600 13.5px var(--ui); color: var(--ink); white-space: nowrap; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px;
+  background: var(--line); outline: none; margin: 4px 0; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--ink); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); cursor: pointer; }
+input[type=range]:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+
+/* main column */
+main { display: grid; gap: 18px; min-width: 0; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 15px 16px; box-shadow: var(--shadow); display: grid; gap: 3px; }
+.kpi .cap { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.kpi .big { font: 500 clamp(26px, 3.4vw, 34px)/1 var(--display); letter-spacing: -.01em; }
+.kpi .note { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 5px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.pill svg { width: 12px; height: 12px; }
+.pill.good { color: var(--good-ink); background: color-mix(in srgb, var(--good) 16%, transparent); }
+.pill.warn { color: var(--warn-ink); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.pill.crit { color: var(--crit-ink); background: color-mix(in srgb, var(--crit) 16%, transparent); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px 18px; box-shadow: var(--shadow); min-width: 0; }
+.card h3 { font: 600 15px var(--ui); margin: 0 0 2px; }
+.card .csub { font-size: 12.5px; color: var(--muted); margin: 0 0 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+
+.chart-wrap { position: relative; }
+svg.chart { width: 100%; display: block; overflow: visible; }
+.axis { font: 500 11px var(--ui); fill: var(--muted); }
+.vlabel { font: 600 11px var(--ui); fill: var(--ink); }
+.vlabel.tnum { font-variant-numeric: tabular-nums; }
+.gridline { stroke: var(--line-2); stroke-width: 1; }
+.zeroline { stroke: var(--line); stroke-width: 1.5; }
+.caplabel { font: 600 10.5px var(--ui); fill: var(--ink-2); }
+.s1{fill:var(--s1)} .s2{fill:var(--s2)} .s3{fill:var(--s3)} .s4{fill:var(--s4)} .s5{fill:var(--s5)}
+.bar { transition: opacity .12s; cursor: pointer; }
+.bar:hover { opacity: .82; }
+.hit { fill: transparent; cursor: pointer; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+.legend i { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+
+.tip { position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -112%);
+  background: var(--ink); color: var(--canvas); padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4;
+  white-space: nowrap; box-shadow: 0 6px 20px -6px rgba(0,0,0,.5); transition: opacity .1s; z-index: 5; }
+.tip b { font-weight: 600; }
+.tip .tnum { font-variant-numeric: tabular-nums; }
+
+/* pipeline table */
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th { text-align: left; font: 600 11px var(--ui); letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+  padding: 0 10px 8px; border-bottom: 1px solid var(--line); }
+thead th.r, td.r { text-align: right; }
+tbody td { padding: 10px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+.stage { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.stage i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+.badge svg { width: 13px; height: 13px; }
+.badge.good { color: var(--good-ink); background: color-mix(in srgb, var(--good) 15%, transparent); }
+.badge.warn { color: var(--warn-ink); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.badge.crit { color: var(--crit-ink); background: color-mix(in srgb, var(--crit) 15%, transparent); }
+
+footer { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; max-width: 78ch; display: grid; gap: 6px; }
+footer b { color: var(--ink-2); font-weight: 600; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brandmark">Studio Operations</div>
+    <div class="titlerow">
+      <h1>Studio Planning Simulator</h1>
+      <div class="spacer"></div>
+      <button class="theme-btn" id="themeBtn" type="button">Dark</button>
+    </div>
+    <p class="sub">A live planning model for a small interior-design studio — project capacity, cash flow, install-date risk, and the Round&nbsp;Top booth and Shopify shop. Move any lever and every number updates.</p>
+    <div class="chips">
+      <span class="chip live">Live model</span>
+      <span class="chip">Example data — not a real studio's figures</span>
+    </div>
+  </header>
+
+  <div class="insight" role="status" aria-live="polite">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.5.5 1 1.3 1 2h6c0-.7.5-1.5 1-2a7 7 0 0 0-4-12Z"/></svg>
+    <p id="insight">—</p>
+  </div>
+
+  <div class="presets">
+    <span class="label">Scenario</span>
+    <button class="preset active" data-preset="current" type="button">Current plan</button>
+    <button class="preset" data-preset="busy" type="button">Busy season</button>
+    <button class="preset" data-preset="coordinator" type="button">Add a coordinator</button>
+    <button class="preset" data-preset="lean" type="button">Lean month</button>
+    <button class="preset ghost" data-preset="reset" type="button">Reset</button>
+  </div>
+
+  <div class="layout">
+    <aside class="controls" aria-label="Scenario levers">
+      <h2>Levers</h2>
+      <form id="form">
+        <fieldset>
+          <legend><span class="dot" style="background:var(--s1)"></span>Projects &amp; capacity</legend>
+          <div class="field"><div class="top"><label for="projects">Active client projects</label><span class="v tnum" id="projects_v"></span></div><input type="range" id="projects" min="1" max="16" step="1"></div>
+          <div class="field"><div class="top"><label for="pvalue">Avg project value</label><span class="v tnum" id="pvalue_v"></span></div><input type="range" id="pvalue" min="15000" max="90000" step="1000"></div>
+          <div class="field"><div class="top"><label for="hrsproj">Hours / project / week</label><span class="v tnum" id="hrsproj_v"></span></div><input type="range" id="hrsproj" min="2" max="12" step="1"></div>
+          <div class="field"><div class="top"><label for="capacity">Team capacity (hrs/week)</label><span class="v tnum" id="capacity_v"></span></div><input type="range" id="capacity" min="30" max="120" step="5"></div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="dot" style="background:var(--s3)"></span>Cash</legend>
+          <div class="field"><div class="top"><label for="deposit">Deposit at project start</label><span class="v tnum" id="deposit_v"></span></div><input type="range" id="deposit" min="0" max="100" step="5"></div>
+          <div class="field"><div class="top"><label for="overhead">Fixed overhead (monthly)</label><span class="v tnum" id="overhead_v"></span></div><input type="range" id="overhead" min="2000" max="20000" step="500"></div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="dot" style="background:var(--s2)"></span>Orders &amp; install</legend>
+          <div class="field"><div class="top"><label for="lead">Supplier lead time (weeks)</label><span class="v tnum" id="lead_v"></span></div><input type="range" id="lead" min="4" max="20" step="1"></div>
+          <div class="field"><div class="top"><label for="backorder">Backorder rate</label><span class="v tnum" id="backorder_v"></span></div><input type="range" id="backorder" min="0" max="40" step="1"></div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="dot" style="background:var(--s4)"></span>Round Top &amp; shop</legend>
+          <div class="field"><div class="top"><label for="shows">Round Top shows / year</label><span class="v tnum" id="shows_v"></span></div><input type="range" id="shows" min="0" max="2" step="1"></div>
+          <div class="field"><div class="top"><label for="booth">Revenue / show</label><span class="v tnum" id="booth_v"></span></div><input type="range" id="booth" min="5000" max="50000" step="1000"></div>
+          <div class="field"><div class="top"><label for="orders">Shop orders / month</label><span class="v tnum" id="orders_v"></span></div><input type="range" id="orders" min="0" max="400" step="10"></div>
+          <div class="field"><div class="top"><label for="aov">Shop avg order value</label><span class="v tnum" id="aov_v"></span></div><input type="range" id="aov" min="20" max="200" step="5"></div>
+        </fieldset>
+      </form>
+    </aside>
+
+    <main>
+      <section class="kpis" aria-label="Key numbers">
+        <div class="kpi"><span class="cap">Capacity used</span><span class="big tnum" id="k_util"></span><span class="note" id="k_util_note"></span></div>
+        <div class="kpi"><span class="cap">Projected revenue</span><span class="big tnum" id="k_rev"></span><span class="note">next 12 months</span></div>
+        <div class="kpi"><span class="cap">Leanest month</span><span class="big tnum" id="k_cash"></span><span class="note" id="k_cash_note"></span></div>
+        <div class="kpi"><span class="cap">Installs at risk</span><span class="big tnum" id="k_risk"></span><span class="note" id="k_risk_note"></span></div>
+      </section>
+
+      <div class="grid2">
+        <section class="card">
+          <h3>Weekly workload vs. capacity</h3>
+          <p class="csub">Design hours needed over the next 8 weeks. Red bars run over the team's capacity line.</p>
+          <div class="chart-wrap"><svg class="chart" id="capChart" viewBox="0 0 560 260" role="img" aria-label="Weekly workload versus capacity"></svg><div class="tip" id="capTip"></div></div>
+        </section>
+        <section class="card">
+          <h3>Revenue by stream</h3>
+          <p class="csub">Projected next-12-month revenue across the studio's four income streams.</p>
+          <div class="chart-wrap"><svg class="chart" id="revChart" viewBox="0 0 560 260" role="img" aria-label="Revenue by stream"></svg><div class="tip" id="revTip"></div></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h3>Monthly cash flow</h3>
+        <p class="csub">Net cash each month after overhead. Round&nbsp;Top costs land before each show; its revenue lands in the show month.</p>
+        <div class="chart-wrap"><svg class="chart" id="cashChart" viewBox="0 0 1120 280" role="img" aria-label="Monthly net cash flow"></svg><div class="tip" id="cashTip"></div></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>Positive month</span>
+          <span><i style="background:var(--s2)"></i>Negative month</span>
+          <span><i style="background:var(--ink-2)"></i>Cumulative cash</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Project pipeline &amp; install risk</h3>
+        <p class="csub">Install risk recomputes from supplier lead time and backorder rate against each project's install date.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Project</th><th>Stage</th><th class="r">Install in</th><th>Order status</th></tr></thead>
+            <tbody id="pipeBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer>
+        <div><b>About this model.</b> All figures are synthetic and illustrative — built to show the planning logic, not a real studio's books. Projections are steady-state estimates, not accounting output.</div>
+        <div><b>Rebuild in Power BI:</b> the same inputs and measures map directly to Power BI what-if parameters and DAX measures; ask for the dataset as CSV/Excel and a measure list to recreate it there.</div>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const fmtMoney = n => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+  const fmtK = n => { const a = Math.abs(n); const s = n < 0 ? "−$" : "$";
+    if (a >= 1000) return s + (a/1000).toLocaleString("en-US",{maximumFractionDigits: a>=10000?0:1}) + "k";
+    return s + Math.round(a); };
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+  const FIELDS = {
+    projects:{def:7}, pvalue:{def:42000,money:1}, hrsproj:{def:6}, capacity:{def:55},
+    deposit:{def:50,pct:1}, overhead:{def:7500,money:1},
+    lead:{def:9}, backorder:{def:15,pct:1},
+    shows:{def:2}, booth:{def:26000,money:1}, orders:{def:150}, aov:{def:85,money:1},
+  };
+  const PRESETS = {
+    current: {},
+    busy:    { projects:12, hrsproj:7, orders:230, aov:95 },
+    coordinator: { projects:12, hrsproj:7, capacity:90, lead:8, backorder:7 },
+    lean:    { projects:4, hrsproj:5, shows:0, orders:80, overhead:6000 },
+  };
+  // Fixed, fictional pipeline. weeksToInstall is the planning distance to each install.
+  const PROJECTS = [
+    { name:"Alcott Residence — Great Room", stage:"Install prep", stageColor:"var(--s3)", weeksToInstall:6 },
+    { name:"Marlowe Lake House", stage:"Ordering", stageColor:"var(--s4)", weeksToInstall:10 },
+    { name:"Saffron & Sage Café", stage:"Sourcing", stageColor:"var(--s2)", weeksToInstall:13 },
+    { name:"Verrill Primary Suite", stage:"Install prep", stageColor:"var(--s3)", weeksToInstall:8 },
+    { name:"Dunmore Loft", stage:"Moodboard", stageColor:"var(--s1)", weeksToInstall:18 },
+    { name:"Pell Street Boutique", stage:"Ordering", stageColor:"var(--s4)", weeksToInstall:11 },
+    { name:"Harlow Garden Studio", stage:"Sourcing", stageColor:"var(--s2)", weeksToInstall:15 },
+    { name:"Ridgeline Ranch", stage:"Install prep", stageColor:"var(--s3)", weeksToInstall:7 },
+  ];
+  const WEEK_CURVE = [0.82, 1.0, 1.18, 1.3, 1.08, 0.94, 0.86, 0.72]; // seasonal intensity over 8 weeks
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const state = {};
+
+  // ---- model ---------------------------------------------------------------
+  function compute() {
+    const s = state;
+    const weekly = WEEK_CURVE.map(m => s.projects * s.hrsproj * m);
+    const avgWeekly = weekly.reduce((a,b)=>a+b,0) / weekly.length;
+    const util = avgWeekly / s.capacity;
+    const overWeeks = weekly.filter(h => h > s.capacity).length;
+
+    const completedPerYear = s.projects * (52 / 14);
+    const revClient = completedPerYear * s.pvalue;
+    const revArt = 3500 * 12;
+    const revShop = s.orders * s.aov * 12;
+    const revBooth = s.booth * s.shows;
+    const revTotal = revClient + revArt + revShop + revBooth;
+    const streams = [
+      { key:"Client projects", val:revClient, cls:"s1" },
+      { key:"Shop (Shopify)",  val:revShop,  cls:"s3" },
+      { key:"Round Top booth", val:revBooth, cls:"s4" },
+      { key:"Custom art",      val:revArt,   cls:"s2" },
+    ].sort((a,b)=>b.val-a.val);
+
+    // monthly cash
+    const showMonths = s.shows >= 2 ? [3,9] : s.shows === 1 ? [9] : [];
+    const clientMonthly = (revClient / 12) * 0.68;      // studio's share after passthrough COGS
+    const front = (s.deposit - 50) / 100;               // deposit timing tilt vs a 50% baseline
+    const shopNet = s.orders * s.aov * 0.45;
+    const artNet = revArt / 12 * 0.6;
+    const cash = MONTHS.map((_, m) => {
+      let c = clientMonthly + shopNet + artNet - s.overhead;
+      c += clientMonthly * front * (m < 3 ? 1 : m > 8 ? -0.6 : 0); // front-load early months on higher deposits
+      if (showMonths.includes(m)) c += s.booth;                    // booth revenue in show month
+      showMonths.forEach(sm => { if (m === sm-1 || m === sm-2) c -= (s.booth*0.4)/2; }); // booth costs the 2 months prior
+      return c;
+    });
+    let run = 0; const cumulative = cash.map(c => (run += c));
+    const leanest = Math.min(...cash);
+    const leanestMonth = MONTHS[cash.indexOf(leanest)];
+
+    // install risk
+    const effLead = s.lead * (1 + s.backorder / 100);
+    const pipeline = PROJECTS.map(p => {
+      const slack = p.weeksToInstall - effLead;
+      let risk = slack >= 3 ? "good" : slack >= 0 ? "warn" : "crit";
+      // a moodboard-stage job hasn't ordered yet, so lead time isn't biting yet
+      if (p.stage === "Moodboard" && risk === "crit") risk = "warn";
+      return { ...p, risk, effLead };
+    });
+    const atRisk = pipeline.filter(p => p.risk !== "good").length;
+    const late = pipeline.filter(p => p.risk === "crit").length;
+
+    return { weekly, avgWeekly, util, overWeeks, streams, revTotal, cash, cumulative,
+             leanest, leanestMonth, pipeline, atRisk, late };
+  }
+
+  // ---- charts --------------------------------------------------------------
+  function clear(svg){ while (svg.firstChild) svg.removeChild(svg.firstChild); }
+  function tip(t, html, x, y){ t.innerHTML = html; t.style.left = x+"px"; t.style.top = y+"px"; t.style.opacity = 1; }
+  function hide(t){ t.style.opacity = 0; }
+
+  function drawCapacity(m) {
+    const svg = $("capChart"), t = $("capTip"); clear(svg);
+    const W=560,H=260,L=38,R=14,T=18,B=34, iw=W-L-R, ih=H-T-B;
+    const cap = state.capacity;
+    const max = Math.max(cap, ...m.weekly) * 1.12;
+    const y = v => T + ih - (v/max)*ih;
+    const bw = iw/8, pad = bw*0.26;
+    [0,0.5,1].forEach(f => { const gv = max*f; const yy = y(gv);
+      svg.appendChild(el("line",{x1:L,y1:yy,x2:W-R,y2:yy,class:"gridline"}));
+      const tx=el("text",{x:L-6,y:yy+3,class:"axis","text-anchor":"end"}); tx.textContent=Math.round(gv); svg.appendChild(tx);
+    });
+    m.weekly.forEach((h,i) => {
+      const x = L + i*bw + pad, w = bw - pad*2, yy = y(h), bh = T+ih-yy;
+      const over = h > cap;
+      const rect = el("rect",{x,y:yy,width:w,height:Math.max(bh,1),rx:4,class:"bar"});
+      rect.style.fill = over ? "var(--crit)" : "var(--s1)";
+      svg.appendChild(rect);
+      const lab=el("text",{x:x+w/2,y:yy-6,class:"vlabel tnum","text-anchor":"middle"}); lab.textContent=Math.round(h); svg.appendChild(lab);
+      const wk=el("text",{x:x+w/2,y:H-B+16,class:"axis","text-anchor":"middle"}); wk.textContent="W"+(i+1); svg.appendChild(wk);
+      const hit=el("rect",{x:L+i*bw,y:T,width:bw,height:ih,class:"hit"});
+      hit.addEventListener("mousemove",e=>{const r=svg.getBoundingClientRect(),sx=W/r.width;
+        tip(t,`<b>Week ${i+1}</b><br><span class="tnum">${Math.round(h)} hrs</span> needed · cap ${cap}<br>${over?"Over by "+Math.round(h-cap)+" hrs":"Within capacity"}`,(L+i*bw+bw/2)/sx,yy/(H/r.height));});
+      hit.addEventListener("mouseleave",()=>hide(t));
+      svg.appendChild(hit);
+    });
+    const cy = y(cap);
+    svg.appendChild(el("line",{x1:L,y1:cy,x2:W-R,y2:cy,stroke:"var(--ink)","stroke-width":1.5,"stroke-dasharray":"5 4"}));
+    const cl=el("text",{x:W-R,y:cy-6,class:"caplabel","text-anchor":"end"}); cl.textContent="Capacity "+cap+" hrs"; svg.appendChild(cl);
+  }
+
+  function drawRevenue(m) {
+    const svg=$("revChart"), t=$("revTip"); clear(svg);
+    const W=560,H=260,L=120,R=70,T=12,B=12, iw=W-L-R, ih=H-T-B;
+    const max=Math.max(...m.streams.map(s=>s.val))*1.02;
+    const rh=ih/m.streams.length, bh=Math.min(rh*0.56,34);
+    m.streams.forEach((s,i)=>{
+      const cy=T+i*rh+rh/2, w=Math.max((s.val/max)*iw,2);
+      const lab=el("text",{x:L-12,y:cy+4,class:"axis","text-anchor":"end"}); lab.textContent=s.key;
+      lab.style.fill="var(--ink-2)"; lab.style.fontWeight="500"; svg.appendChild(lab);
+      const rect=el("rect",{x:L,y:cy-bh/2,width:w,height:bh,rx:4,class:"bar "+s.cls}); svg.appendChild(rect);
+      const vt=el("text",{x:L+w+8,y:cy+4,class:"vlabel tnum"}); vt.textContent=fmtK(s.val); svg.appendChild(vt);
+      const hit=el("rect",{x:L,y:cy-rh/2,width:iw+R,height:rh,class:"hit"});
+      const pct=(s.val/m.revTotal*100);
+      hit.addEventListener("mousemove",e=>{const r=svg.getBoundingClientRect();
+        tip(t,`<b>${s.key}</b><br><span class="tnum">${fmtMoney(s.val)}</span> · ${pct.toFixed(0)}% of revenue`,(L+w)/ (W/r.width),(cy-bh/2)/(H/r.height));});
+      hit.addEventListener("mouseleave",()=>hide(t)); svg.appendChild(hit);
+    });
+  }
+
+  function drawCash(m) {
+    const svg=$("cashChart"), t=$("cashTip"); clear(svg);
+    const W=1120,H=280,L=52,R=56,T=18,B=30, iw=W-L-R, ih=H-T-B;
+    const vals=m.cash, cum=m.cumulative;
+    const lo=Math.min(0,...vals), hi=Math.max(0,...vals);
+    const pad=(hi-lo)*0.12||1; const min=lo-pad, max=hi+pad;
+    const y=v=>T+ih-((v-min)/(max-min))*ih;
+    const bw=iw/12, bpad=bw*0.28;
+    const zy=y(0);
+    [min,(min+max)/2,max].forEach(gv=>{const yy=y(gv);
+      svg.appendChild(el("line",{x1:L,y1:yy,x2:W-R,y2:yy,class:"gridline"}));
+      const tx=el("text",{x:L-8,y:yy+3,class:"axis","text-anchor":"end"}); tx.textContent=fmtK(gv); svg.appendChild(tx);});
+    svg.appendChild(el("line",{x1:L,y1:zy,x2:W-R,y2:zy,class:"zeroline"}));
+    vals.forEach((v,i)=>{
+      const x=L+i*bw+bpad, w=bw-bpad*2;
+      const yy=v>=0?y(v):zy, bh=Math.abs(y(v)-zy);
+      const rect=el("rect",{x,y:yy,width:w,height:Math.max(bh,1),rx:3,class:"bar"});
+      rect.style.fill=v>=0?"var(--s1)":"var(--s2)"; svg.appendChild(rect);
+      const mt=el("text",{x:x+w/2,y:H-B+16,class:"axis","text-anchor":"middle"}); mt.textContent=MONTHS[i]; svg.appendChild(mt);
+    });
+    // cumulative line on same axis
+    const cmin=Math.min(...cum,min), cmax=Math.max(...cum,max);
+    const cy=v=>T+ih-((v-Math.min(min,cmin))/(Math.max(max,cmax)-Math.min(min,cmin)))*ih;
+    let d=""; cum.forEach((v,i)=>{const x=L+i*bw+bw/2; d+=(i?"L":"M")+x+" "+cy(v)+" ";});
+    svg.appendChild(el("path",{d,fill:"none",stroke:"var(--ink-2)","stroke-width":2,"stroke-linejoin":"round","stroke-dasharray":"1 0",opacity:.8}));
+    cum.forEach((v,i)=>{const x=L+i*bw+bw/2; const c=el("circle",{cx:x,cy:cy(v),r:3.2,fill:"var(--surface)",stroke:"var(--ink-2)","stroke-width":1.6}); svg.appendChild(c);});
+    vals.forEach((v,i)=>{
+      const hit=el("rect",{x:L+i*bw,y:T,width:bw,height:ih,class:"hit"});
+      hit.addEventListener("mousemove",e=>{const r=svg.getBoundingClientRect();
+        tip(t,`<b>${MONTHS[i]}</b><br>Net <span class="tnum">${fmtMoney(v)}</span><br>Cumulative <span class="tnum">${fmtMoney(cum[i])}</span>`,(L+i*bw+bw/2)/(W/r.width),(Math.min(y(v),zy))/(H/r.height));});
+      hit.addEventListener("mouseleave",()=>hide(t)); svg.appendChild(hit);
+    });
+  }
+
+  const ICON = {
+    good:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+    crit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>',
+  };
+  const RISK_LABEL = { good:"On track", warn:"Tight", crit:"At risk" };
+
+  function drawPipe(m) {
+    const body=$("pipeBody"); body.innerHTML="";
+    m.pipeline.forEach(p=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td>${p.name}</td>`+
+        `<td><span class="stage"><i style="background:${p.stageColor}"></i>${p.stage}</span></td>`+
+        `<td class="r tnum">${p.weeksToInstall} wk</td>`+
+        `<td><span class="badge ${p.risk}">${ICON[p.risk]}${RISK_LABEL[p.risk]}</span></td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  // ---- KPIs + insight ------------------------------------------------------
+  function render() {
+    const m = compute();
+    const utilPct = Math.round(m.util*100);
+    $("k_util").textContent = utilPct+"%";
+    const un=$("k_util_note");
+    if (m.util > 1) un.innerHTML = `<span class="pill crit">${ICON.crit}over capacity</span> ${m.overWeeks} wk`;
+    else if (m.util > 0.85) un.innerHTML = `<span class="pill warn">${ICON.warn}near full</span>`;
+    else un.innerHTML = `<span class="pill good">${ICON.good}headroom</span>`;
+
+    $("k_rev").textContent = fmtK(m.revTotal);
+    $("k_cash").textContent = fmtK(m.leanest);
+    $("k_cash_note").textContent = m.leanest<0 ? m.leanestMonth+" runs negative" : "low point · "+m.leanestMonth;
+    $("k_risk").textContent = m.atRisk;
+    const rn=$("k_risk_note");
+    if (m.late>0) rn.innerHTML = `<span class="pill crit">${ICON.crit}${m.late} likely late</span>`;
+    else if (m.atRisk>0) rn.innerHTML = `<span class="pill warn">${ICON.warn}watch closely</span>`;
+    else rn.innerHTML = `<span class="pill good">${ICON.good}all clear</span>`;
+
+    drawCapacity(m); drawRevenue(m); drawCash(m); drawPipe(m);
+
+    // dynamic insight
+    let msg;
+    if (m.util > 1)
+      msg = `<b>Over capacity ${m.overWeeks} of the next 8 weeks.</b> The studio needs about ${Math.round(m.avgWeekly)} design hrs/week against ${state.capacity}. Adding a coordinator's hours is the fastest way to clear the overload and protect install dates.`;
+    else if (m.late > 0)
+      msg = `<b>${m.late} install${m.late>1?"s":""} likely to slip.</b> At a ${state.lead}-week lead time and ${state.backorder}% backorder rate, effective lead time is ${Math.round(m.pipeline[0].effLead)} weeks — longer than the slack on those jobs. Order earlier or expedite.`;
+    else if (m.leanest < 0)
+      msg = `<b>${m.leanestMonth} dips below zero.</b> Revenue covers the year, but the month-to-month timing leaves a gap. A higher deposit or staggering a Round Top cost smooths it.`;
+    else
+      msg = `<b>Plan looks healthy.</b> Capacity at ${utilPct}%, every install on track, and no month runs negative. Push a lever to stress-test it.`;
+    $("insight").innerHTML = msg;
+  }
+
+  // ---- wiring --------------------------------------------------------------
+  function setField(id, val) {
+    state[id] = val;
+    const f = FIELDS[id]; const input = $(id); if (input) input.value = val;
+    const out = $(id+"_v");
+    if (out) out.textContent = f.money ? fmtMoney(val) : f.pct ? val+"%" : val.toLocaleString("en-US");
+  }
+  function applyPreset(name) {
+    const base = {}; for (const k in FIELDS) base[k] = FIELDS[k].def;
+    const over = PRESETS[name] || {};
+    for (const k in base) setField(k, k in over ? over[k] : base[k]);
+    render();
+    document.querySelectorAll(".preset").forEach(b=>b.classList.toggle("active", b.dataset.preset===name));
+  }
+  Object.keys(FIELDS).forEach(id => {
+    $(id).addEventListener("input", e => {
+      setField(id, Number(e.target.value));
+      document.querySelectorAll(".preset").forEach(b=>b.classList.remove("active"));
+      render();
+    });
+  });
+  document.querySelectorAll(".preset").forEach(b => b.addEventListener("click", () => {
+    const p = b.dataset.preset; applyPreset(p === "reset" ? "current" : p);
+  }));
+
+  // theme toggle
+  const tb = $("themeBtn");
+  function applyTheme(mode){ document.documentElement.setAttribute("data-theme", mode);
+    tb.textContent = mode === "dark" ? "Light" : "Dark";
+    try { localStorage.setItem("studioTheme", mode); } catch(e){} }
+  tb.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    const sysDark = matchMedia("(prefers-color-scheme: dark)").matches;
+    const now = cur ? cur : (sysDark ? "dark" : "light");
+    const next = now === "dark" ? "light" : "dark";
+    applyTheme(next); render();
+  });
+  try { const saved = localStorage.getItem("studioTheme"); if (saved) applyTheme(saved); } catch(e){}
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+
+  // init
+  for (const k in FIELDS) setField(k, FIELDS[k].def);
+  applyPreset("current");
+  let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 120); });
+})();
+</script>
