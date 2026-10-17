@@ -1,0 +1,23 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+artifacts/
+
+## Build output
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+AppPackages/
+*.appx
+*.msix
+
+## Rider
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db

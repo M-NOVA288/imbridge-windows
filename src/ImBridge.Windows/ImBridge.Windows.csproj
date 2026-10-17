@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Windows-only implementation of the transports the Core protocol needs.
+    The net8.0-windows TFM pulls in the Windows SDK projection (Windows.Devices.
+    Bluetooth, etc.) with no extra workload required.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>ImBridge.Windows</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImBridge.Core\ImBridge.Core.csproj" />
+  </ItemGroup>
+</Project>

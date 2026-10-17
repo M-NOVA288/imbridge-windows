@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="ImBridge.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="ImBridge">
+
+    <Grid Padding="12" RowSpacing="8" ColumnSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12">
+            <Button x:Name="ConnectButton" Content="Connect to iPhone" Click="OnConnectClick" />
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Text="Not connected." />
+        </StackPanel>
+
+        <ListView x:Name="ConversationList" Grid.Row="1" Grid.Column="0"
+                  BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  SelectionChanged="OnConversationSelected">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Padding="4,8">
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Address}" FontSize="12" Opacity="0.6" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <ListView x:Name="MessageList" Grid.Row="1" Grid.Column="1"
+                  BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Padding="4,6">
+                        <TextBlock Text="{Binding Sender}" FontSize="12" Opacity="0.6" />
+                        <TextBlock Text="{Binding Body}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <Grid Grid.Row="2" Grid.Column="1" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="ComposeBox" PlaceholderText="Type a message" />
+            <Button x:Name="SendButton" Grid.Column="1" Content="Send" Click="OnSendClick" />
+        </Grid>
+    </Grid>
+</Window>

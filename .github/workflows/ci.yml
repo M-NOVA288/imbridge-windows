@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  core-tests:
+    name: Core protocol tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Test the protocol layer (OBEX, bMessage, MAP)
+        run: dotnet test tests/ImBridge.Core.Tests/ImBridge.Core.Tests.csproj -c Release
+
+  windows-build:
+    name: Windows build (Bluetooth lib + WinUI app)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Build the Bluetooth transport library
+        run: dotnet build src/ImBridge.Windows/ImBridge.Windows.csproj -c Release
+      - name: Build the WinUI 3 desktop app
+        run: dotnet build src/ImBridge.App/ImBridge.App.csproj -c Release -p:Platform=x64

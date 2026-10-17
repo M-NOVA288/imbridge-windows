@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Protocol layer: no Windows dependency on purpose, so it builds and is
+    tested on any OS. All byte-level OBEX / MAP / bMessage logic lives here.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ImBridge.Core</RootNamespace>
+  </PropertyGroup>
+</Project>

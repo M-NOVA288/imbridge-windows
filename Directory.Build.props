@@ -1,0 +1,11 @@
+<Project>
+  <!-- Shared settings for every project in the solution. -->
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Product>ImBridge</Product>
+    <Company>M-NOVA288</Company>
+  </PropertyGroup>
+</Project>
